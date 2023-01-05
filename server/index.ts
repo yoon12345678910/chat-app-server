@@ -5,7 +5,10 @@ import cors from 'cors';
 // mongo connection
 import './config/mongo';
 // routes
+import indexRouter from './routes/index';
 import userRouter from './routes/user';
+// middlewares
+import { decode } from './middlewares/jwt';
 
 const app = express();
 
@@ -17,6 +20,7 @@ app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+app.use('/', indexRouter);
 app.use('/users', userRouter);
 
 /** 404 오류 처리 */
