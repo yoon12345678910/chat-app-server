@@ -2,6 +2,8 @@ import http from 'http';
 import express, { Response } from 'express';
 import logger from 'morgan';
 import cors from 'cors';
+// mongo connection
+import './config/mongo';
 
 const app = express();
 
