@@ -4,6 +4,8 @@ import logger from 'morgan';
 import cors from 'cors';
 // mongo connection
 import './config/mongo';
+// routes
+import userRouter from './routes/user';
 
 const app = express();
 
@@ -14,6 +16,8 @@ app.set('port', port);
 app.use(logger('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+app.use('/users', userRouter);
 
 /** 404 오류 처리 */
 app.use('*', (_, res: Response) => {
