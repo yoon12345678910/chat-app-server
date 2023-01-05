@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "lib": ["es2016", "esnext.asynciterable"],
+    "types": ["node"],
+    "target": "es2016",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "strict": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noImplicitAny": false
+  },
+  "typeRoots": [ "./server/types/express/index.d.ts" ] ,
+  "include": ["./server/**/*"],
+  "exclude": ["node_modules", "server/test", "**/*.spec.ts", "**/*.test.ts"]
+}
