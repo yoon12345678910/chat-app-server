@@ -5,6 +5,8 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 // mongo connection
 import './config/mongo';
+// socket configuration
+import WebSockets from './socket/WebSockets';
 // routes
 import indexRouter from './routes/index';
 import userRouter from './routes/user';
@@ -36,6 +38,8 @@ app.use('*', (_, res: Response) => {
 
 /** HTTP 서버 생성 */
 const server = http.createServer(app);
+global.io = new Server(server);
+global.io.on('connection', WebSockets.connection);
 server.listen(port);
 server.on('listening', () => {
   console.log(`Listening on port:: http://localhost:${port}/`);
