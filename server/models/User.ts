@@ -4,19 +4,24 @@ import { v4 as uuidv4 } from 'uuid';
 export const USER_TYPES = {
   CONSUMER: 'consumer',
   SUPPORT: 'support',
-};
+} as const;
 
-interface IUser {
+export type IUser = {
   _id: string;
   firstName: string;
   lastName: string;
   type: string;
-}
+};
 
 interface IUserModel extends Model<IUser> {
-  createUser: (firstName: string, lastName: string, type: string) => Promise<IUser>;
+  createUser: (
+    firstName: string,
+    lastName: string,
+    type: string
+  ) => Promise<IUser>;
   getUserById: (id: string) => Promise<IUser>;
   getUsers: () => Promise<IUser[]>;
+  getUserByIds: (ids: string[]) => Promise<IUser[]>;
   deleteByUserById: (id: string) => Promise<any>;
 }
 
@@ -36,7 +41,11 @@ const UserSchema = new Schema<Model<IUser, IUserModel>>(
   }
 );
 
-UserSchema.statics.createUser = async function (firstName: string, lastName: string, type: string) {
+UserSchema.statics.createUser = async function (
+  firstName: string,
+  lastName: string,
+  type: string
+) {
   try {
     const user = await this.create({ firstName, lastName, type });
     return user;
@@ -58,6 +67,15 @@ UserSchema.statics.getUserById = async function (id: string) {
 UserSchema.statics.getUsers = async function () {
   try {
     const users = await this.find();
+    return users;
+  } catch (error) {
+    throw error;
+  }
+};
+
+UserSchema.statics.getUserByIds = async function (ids: string[]) {
+  try {
+    const users = await this.find({ _id: { $in: ids } });
     return users;
   } catch (error) {
     throw error;

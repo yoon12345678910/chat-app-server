@@ -2,11 +2,13 @@ import http from 'http';
 import express, { Response } from 'express';
 import logger from 'morgan';
 import cors from 'cors';
+import { Server } from 'socket.io';
 // mongo connection
 import './config/mongo';
 // routes
 import indexRouter from './routes/index';
 import userRouter from './routes/user';
+import chatRoomRouter from './routes/chatRoom';
 // middlewares
 import { decode } from './middlewares/jwt';
 
@@ -22,6 +24,7 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use('/', indexRouter);
 app.use('/users', userRouter);
+app.use('/room', decode, chatRoomRouter);
 
 /** 404 오류 처리 */
 app.use('*', (_, res: Response) => {
