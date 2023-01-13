@@ -1,5 +1,8 @@
 import { AuthToken, Payload } from '../../middlewares/jwt';
-import { Response as coreResponse, Send as coreSend } from 'express-serve-static-core';
+import {
+  Response as coreResponse,
+  Send as coreSend,
+} from 'express-serve-static-core';
 import { APIResponse } from '../';
 
 declare module 'express-serve-static-core' {
@@ -8,8 +11,10 @@ declare module 'express-serve-static-core' {
   }
 }
 declare module 'express' {
-  interface Response<ResBody = any, Locals extends Record<string, any> = Record<string, any>>
-    extends coreResponse<ResBody, Locals> {
+  interface Response<
+    ResBody = any,
+    Locals extends Record<string, any> = Record<string, any>
+  > extends coreResponse<ResBody, Locals> {
     json: coreSend<APIResponse<ResBody>, this>;
   }
 }

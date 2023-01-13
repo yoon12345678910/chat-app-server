@@ -1,47 +1,42 @@
-import mongoose, { Schema, Model, Document } from 'mongoose';
+import mongoose, { Schema, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 import { IUser } from './User';
-import { DateType, PaginationOptions } from '../types';
+import { DateType } from '../types';
 
 export const MESSAGE_TYPES = {
   TYPE_TEXT: 'text',
 } as const;
 
-export type MessageTypeValue = typeof MESSAGE_TYPES[keyof typeof MESSAGE_TYPES];
+export type MessageTypes = typeof MESSAGE_TYPES[keyof typeof MESSAGE_TYPES];
+
+export type MessageData = {
+  messageText: string;
+};
 
 export interface IReadByRecipient {
   readByUserId: string;
   readAt: DateType;
 }
 
-export type ChatMessage = {
-  messageText: string;
-};
-
 export interface IChatMessage {
   _id: string;
   chatRoomId: string;
-  message: ChatMessage;
-  type: MessageTypeValue;
+  message: MessageData;
   postedByUser: IUser;
   readByRecipients: IReadByRecipient[];
-  users: IUser[];
+  type: MessageTypes;
 }
 
 interface IChatMessageModel extends Model<IChatMessage> {
+  getMessagesByRoomIds: <ResponseType>(
+    chatRoomIds: string[],
+    paginationPipeline?: object[]
+  ) => Promise<ResponseType>;
   createPostInChatRoom: (
     chatRoomId: string,
-    message: ChatMessage,
+    message: MessageData,
     postedByUser: string
-  ) => Promise<IChatMessage>;
-  getRecentConversation: (
-    chatRoomIds: string[],
-    options: PaginationOptions
-  ) => Promise<IChatMessage[]>;
-  getConversationByRoomId: (
-    chatRoomId: string,
-    options: PaginationOptions
-  ) => Promise<IChatMessage[]>;
+  ) => Promise<IChatMessage & { userProfiles: IUser[] }>;
   markMessageRead: (
     chatRoomId: string,
     currentUserOnlineId: string
@@ -83,9 +78,35 @@ const ChatMessageSchema = new Schema(
   }
 );
 
+ChatMessageSchema.statics.getMessagesByRoomIds = async function (
+  chatRoomIds: string[],
+  paginationPipeline: object[] = [{}]
+) {
+  try {
+    const aggregate = await this.aggregate([
+      { $match: { chatRoomId: { $in: chatRoomIds } } },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'postedByUser',
+          foreignField: '_id',
+          as: 'postedByUser',
+        },
+      },
+      { $unwind: '$postedByUser' },
+      { $sort: { createdAt: 1 } },
+      ...paginationPipeline,
+    ]);
+    return aggregate[0];
+  } catch (error) {
+    throw error;
+  }
+};
+
 ChatMessageSchema.statics.createPostInChatRoom = async function (
   chatRoomId: string,
-  message: ChatMessage,
+  message: MessageData,
   postedByUser: string
 ) {
   try {
@@ -134,116 +155,13 @@ ChatMessageSchema.statics.createPostInChatRoom = async function (
           type: { $last: '$type' },
           postedByUser: { $last: '$postedByUser' },
           readByRecipients: { $last: '$readByRecipients' },
-          users: { $addToSet: '$chatRoomInfo.userProfile' },
+          userProfiles: { $addToSet: '$chatRoomInfo.userProfile' },
           createdAt: { $last: '$createdAt' },
           updatedAt: { $last: '$updatedAt' },
         },
       },
     ]);
-    return aggregate[0] as IChatMessage;
-  } catch (error) {
-    throw error;
-  }
-};
-
-ChatMessageSchema.statics.getRecentConversation = async function (
-  chatRoomIds: string[],
-  options: PaginationOptions = { page: 0, limit: 10 }
-) {
-  try {
-    return this.aggregate([
-      { $match: { chatRoomId: { $in: chatRoomIds } } },
-      {
-        $group: {
-          _id: '$chatRoomId',
-          messageId: { $last: '$_id' },
-          chatRoomId: { $last: '$chatRoomId' },
-          message: { $last: '$message' },
-          type: { $last: '$type' },
-          postedByUser: { $last: '$postedByUser' },
-          createdAt: { $last: '$createdAt' },
-          readByRecipients: { $last: '$readByRecipients' },
-        },
-      },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'postedByUser',
-          foreignField: '_id',
-          as: 'postedByUser',
-        },
-      },
-      { $unwind: '$postedByUser' },
-      {
-        $lookup: {
-          from: 'chatrooms',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'roomInfo',
-        },
-      },
-      { $unwind: '$roomInfo' },
-      { $unwind: '$roomInfo.userIds' },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'roomInfo.userIds',
-          foreignField: '_id',
-          as: 'roomInfo.userProfile',
-        },
-      },
-      { $unwind: '$readByRecipients' },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'readByRecipients.readByUserId',
-          foreignField: '_id',
-          as: 'readByRecipients.readByUser',
-        },
-      },
-      {
-        $group: {
-          _id: '$roomInfo._id',
-          messageId: { $last: '$messageId' },
-          chatRoomId: { $last: '$chatRoomId' },
-          message: { $last: '$message' },
-          type: { $last: '$type' },
-          postedByUser: { $last: '$postedByUser' },
-          readByRecipients: { $addToSet: '$readByRecipients' },
-          users: { $addToSet: '$roomInfo.userProfile' },
-          createdAt: { $last: '$createdAt' },
-        },
-      },
-      { $skip: options.page * options.limit },
-      { $limit: options.limit },
-    ]);
-  } catch (error) {
-    throw error;
-  }
-};
-
-ChatMessageSchema.statics.getConversationByRoomId = async function (
-  chatRoomId: string,
-  options: PaginationOptions = { page: 0, limit: 10 }
-) {
-  try {
-    return this.aggregate([
-      { $match: { chatRoomId } },
-      { $sort: { createdAt: -1 } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'postedByUser',
-          foreignField: '_id',
-          as: 'postedByUser',
-        },
-      },
-      { $unwind: '$postedByUser' },
-      { $skip: options.page * options.limit },
-      { $limit: options.limit },
-      { $sort: { createdAt: 1 } },
-    ]);
+    return aggregate[0];
   } catch (error) {
     throw error;
   }
@@ -274,6 +192,6 @@ ChatMessageSchema.statics.markMessageRead = async function (
 };
 
 export default mongoose.model<IChatMessage, IChatMessageModel>(
-  'ChatMessage',
+  'MessageData',
   ChatMessageSchema
 );

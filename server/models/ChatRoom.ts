@@ -1,40 +1,21 @@
-import mongoose, { Schema, Model, Document } from 'mongoose';
+import mongoose, { Schema, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
-export const CHAT_ROOM_TYPES = {
-  CONSUMER_TO_CONSUMER: 'consumer-to-consumer',
-  CONSUMER_TO_SUPPORT: 'consumer-to-support',
-} as const;
-
-export type ChatRoomTypeValue =
-  typeof CHAT_ROOM_TYPES[keyof typeof CHAT_ROOM_TYPES];
-
-export interface IChatRoom extends DocumentResult<IChatRoom> {
+export interface IChatRoom {
   _id: string;
-  type: ChatRoomTypeValue;
+  name: string;
   userIds: string[];
   chatInitiator: string;
 }
 
-export type InitiateChatResponse = {
-  isNew: boolean;
-  message: string;
-  chatRoomId: string;
-  type: ChatRoomTypeValue;
-};
-
-interface DocumentResult<T> extends Document {
-  _doc: T;
-}
-
 interface IChatRoomModel extends Model<IChatRoom> {
+  getChatRooms: <ResponseType>(paginationPipeline?: object[]) => Promise<ResponseType>;
   getChatRoomsByUserId: (userId: string) => Promise<IChatRoom[]>;
   getChatRoomByRoomId: (roomId: string) => Promise<IChatRoom>;
-  initiateChat: (
-    userIds: string[],
-    type: ChatRoomTypeValue,
-    chatInitiator: string
-  ) => Promise<InitiateChatResponse>;
+  getUsersInChatRoom: (roomId: string) => Promise<string[]>;
+  createChatRoom: (name: string, chatInitiator: string) => Promise<IChatRoom>;
+  joinChatRoom: (roomId: string, userId: string) => Promise<IChatRoom>;
+  leaveChatRoom: (roomId: string, userId: string) => Promise<IChatRoom>;
 }
 
 const ChatRoomSchema = new Schema(
@@ -43,8 +24,8 @@ const ChatRoomSchema = new Schema(
       type: String,
       default: () => uuidv4().replace(/\-/g, ''),
     },
+    name: String,
     userIds: Array,
-    type: String,
     chatInitiator: String,
   },
   {
@@ -52,6 +33,20 @@ const ChatRoomSchema = new Schema(
     collection: 'chatrooms',
   }
 );
+
+ChatRoomSchema.statics.getChatRooms = async function (
+  paginationPipeline: object[] = [{}]
+) {
+  try {
+    const aggregate = await this.aggregate([
+      { $match: {} },
+      ...paginationPipeline
+    ]);
+    return aggregate[0];
+  } catch (error) {
+    throw error;
+  }
+};
 
 ChatRoomSchema.statics.getChatRoomsByUserId = async function (userId: string) {
   try {
@@ -71,40 +66,59 @@ ChatRoomSchema.statics.getChatRoomByRoomId = async function (roomId: string) {
   }
 };
 
-ChatRoomSchema.statics.initiateChat = async function (
-  userIds: string[],
-  type: ChatRoomTypeValue,
+ChatRoomSchema.statics.getUsersInChatRoom = async function (roomId: string) {
+  try {
+    const room = await this.findOne({ _id: roomId });
+    return room.userIds;
+  } catch (error) {
+    throw error;
+  }
+};
+
+ChatRoomSchema.statics.createChatRoom = async function (
+  name: string,
   chatInitiator: string
 ) {
   try {
-    const availableRoom: IChatRoom = await this.findOne({
-      userIds: {
-        $size: userIds.length,
-        $all: [...userIds],
-      },
-      type,
-    });
-    if (availableRoom) {
-      return {
-        isNew: false,
-        message: '기존 채팅방',
-        chatRoomId: availableRoom._doc._id,
-        type: availableRoom._doc.type,
-      };
-    }
-    const newRoom = (await this.create({
-      userIds,
-      type,
+    const newRoom = await this.create({
+      name,
+      userIds: [chatInitiator],
       chatInitiator,
-    })) as IChatRoom;
-    return {
-      isNew: true,
-      message: '새 채팅방',
-      chatRoomId: newRoom._doc._id,
-      type: newRoom._doc.type,
-    };
+    });
+    return newRoom;
   } catch (error) {
-    console.log('채팅 시작 메소드 오류', error);
+    throw error;
+  }
+};
+
+ChatRoomSchema.statics.joinChatRoom = async function (
+  roomId: string,
+  userId: string
+) {
+  try {
+    const room = await this.findOneAndUpdate(
+      { _id: roomId },
+      { $push: { userIds: userId } },
+      { upsert: true, new: true }
+    );
+    return room;
+  } catch (error) {
+    throw error;
+  }
+};
+
+ChatRoomSchema.statics.leaveChatRoom = async function (
+  roomId: string,
+  userId: string
+) {
+  try {
+    const room = await this.findOneAndUpdate(
+      { _id: roomId },
+      { $pull: { userIds: userId } },
+      { upsert: true, new: true }
+    );
+    return room;
+  } catch (error) {
     throw error;
   }
 };

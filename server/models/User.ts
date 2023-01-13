@@ -1,28 +1,17 @@
 import mongoose, { Schema, Model } from 'mongoose';
 import { v4 as uuidv4 } from 'uuid';
 
-export const USER_TYPES = {
-  CONSUMER: 'consumer',
-  SUPPORT: 'support',
-} as const;
-
 export type IUser = {
   _id: string;
-  firstName: string;
-  lastName: string;
-  type: string;
+  name: string;
 };
 
 interface IUserModel extends Model<IUser> {
-  createUser: (
-    firstName: string,
-    lastName: string,
-    type: string
-  ) => Promise<IUser>;
+  createUser: (name: string) => Promise<IUser>;
   getUserById: (id: string) => Promise<IUser>;
   getUsers: () => Promise<IUser[]>;
   getUserByIds: (ids: string[]) => Promise<IUser[]>;
-  deleteByUserById: (id: string) => Promise<any>;
+  deleteByUserById: (id: string) => Promise<{ deletedCount: number }>;
 }
 
 const UserSchema = new Schema<Model<IUser, IUserModel>>(
@@ -31,9 +20,7 @@ const UserSchema = new Schema<Model<IUser, IUserModel>>(
       type: String,
       default: () => uuidv4().replace(/\-/g, ''),
     },
-    firstName: String,
-    lastName: String,
-    type: String,
+    name: String,
   },
   {
     timestamps: true,
@@ -41,13 +28,9 @@ const UserSchema = new Schema<Model<IUser, IUserModel>>(
   }
 );
 
-UserSchema.statics.createUser = async function (
-  firstName: string,
-  lastName: string,
-  type: string
-) {
+UserSchema.statics.createUser = async function (name: string) {
   try {
-    const user = await this.create({ firstName, lastName, type });
+    const user = await this.create({ name });
     return user;
   } catch (error) {
     throw error;

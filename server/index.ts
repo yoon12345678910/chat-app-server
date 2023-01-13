@@ -26,13 +26,13 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use('/', indexRouter);
 app.use('/users', userRouter);
-app.use('/room', decode, chatRoomRouter);
+app.use('/rooms', decode, chatRoomRouter);
 
 /** 404 오류 처리 */
 app.use('*', (_, res: Response) => {
   return res.status(404).json({
     success: false,
-    message: 'API endpoint 가 없습니다.',
+    message: 'API endpoint가 없습니다.',
   });
 });
 

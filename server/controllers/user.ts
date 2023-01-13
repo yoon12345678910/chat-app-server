@@ -1,45 +1,47 @@
-// utils
+import { Request, Response } from 'express';
+
 import makeValidation from '@withvoid/make-validation';
-// models
-import UserModel, { USER_TYPES } from '../models/User';
+
+import UserModel, { IUser } from '../models/User';
 
 export default {
-  onGetAllUsers: async (_, res) => {
+  getAllUsers: async (_: Request, res: Response<{ users: IUser[] }>) => {
     try {
       const users = await UserModel.getUsers();
-      return res.status(200).json({ success: true, users });
+      return res.status(200).json({ success: true, data: { users } });
     } catch (error) {
       return res.status(500).json({ success: false, error: error });
     }
   },
-  onGetUserById: async (req, res) => {
+  getUserById: async (req: Request, res: Response<{ user: IUser }>) => {
     try {
       const user = await UserModel.getUserById(req.params.id);
-      return res.status(200).json({ success: true, user });
+      return res.status(200).json({ success: true, data: { user } });
     } catch (error) {
       return res.status(500).json({ success: false, error: error });
     }
   },
-  onCreateUser: async (req, res) => {
+  createUser: async (
+    req: Request<any, any, Omit<IUser, '_id'>>,
+    res: Response<{ user: IUser }>
+  ) => {
     try {
       const validation = makeValidation((types) => ({
         payload: req.body,
         checks: {
-          firstName: { type: types.string },
-          lastName: { type: types.string },
-          type: { type: types.enum, options: { enum: USER_TYPES } },
+          name: { type: types.string },
         },
       }));
-      if (!validation.success) return res.status(400).json(validation);
+      if (!validation.success) return res.status(400).json({ ...validation });
 
-      const { firstName, lastName, type } = req.body;
-      const user = await UserModel.createUser(firstName, lastName, type);
-      return res.status(200).json({ success: true, user });
+      const { name } = req.body;
+      const user = await UserModel.createUser(name);
+      return res.status(200).json({ success: true, data: { user } });
     } catch (error) {
       return res.status(500).json({ success: false, error: error });
     }
   },
-  onDeleteUserById: async (req, res) => {
+  deleteUserById: async (req: Request, res: Response) => {
     try {
       const user = await UserModel.deleteByUserById(req.params.id);
       return res.status(200).json({
